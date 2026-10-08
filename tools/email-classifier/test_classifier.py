@@ -1,4 +1,5 @@
 import contextlib
+import csv
 import io
 import json
 import os
@@ -111,6 +112,51 @@ class CliTests(unittest.TestCase):
             results = [json.loads(line) for line in out.getvalue().splitlines()]
 
         self.assertEqual([r["label"] for r in results], ["spam", "ham"])
+
+
+class LabelCsvTests(unittest.TestCase):
+    def test_reads_emails_from_csv_and_writes_labels(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            model_path = tmp / "model.json"
+            trained_model().save(model_path)
+            input_path = tmp / "emails.csv"
+            input_path.write_text(
+                "id,subject,body\n"
+                "1,WINNER,Claim your free $1000 prize now!!!\n"
+                "2,Lunch,Are we still meeting for lunch tomorrow?\n",
+                encoding="utf-8",
+            )
+            output_path = tmp / "labelled.csv"
+
+            code = classifier.main([
+                "label-csv", "--model", str(model_path), "--input", str(input_path),
+                "--output", str(output_path), "--text-columns", "subject", "body",
+            ])
+
+            with output_path.open(newline="", encoding="utf-8") as f:
+                rows = list(csv.DictReader(f))
+
+        self.assertEqual(code, 0)
+        self.assertEqual([r["label"] for r in rows], ["spam", "ham"])
+        self.assertEqual(rows[0]["id"], "1")
+        self.assertIn("spam_probability", rows[0])
+
+    def test_missing_text_column_is_an_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            model_path = tmp / "model.json"
+            trained_model().save(model_path)
+            input_path = tmp / "emails.csv"
+            input_path.write_text("id,subject\n1,hi\n", encoding="utf-8")
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                code = classifier.main([
+                    "label-csv", "--model", str(model_path), "--input", str(input_path),
+                    "--output", str(tmp / "out.csv"),
+                ])
+        self.assertEqual(code, 2)
+        self.assertIn("text", err.getvalue())
 
 
 class FetchTests(unittest.TestCase):

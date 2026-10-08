@@ -8,7 +8,7 @@ runs anywhere Python 3.10+ is installed and needs no API keys.
 
 | Path | Purpose |
 | --- | --- |
-| `classifier.py` | Training, classification, and IMAP fetch (CLI) |
+| `classifier.py` | Training, CSV labelling, .eml classification, and IMAP fetch (CLI) |
 | `test_classifier.py` | Unit tests (run with `python -m unittest -v test_classifier`) |
 | `data/sample_train.csv` | Tiny example training set. Replace with real labelled mail. |
 | `../../.github/workflows/email-classifier.yml` | Hourly + manual GitHub Actions run |
@@ -21,7 +21,12 @@ cd tools/email-classifier
 # 1. Train a model from labelled data (columns: label,text; label is spam or ham)
 python classifier.py train --data data/sample_train.csv --model model.json
 
-# 2. Classify .eml files exported from your mail client
+# 2. Label emails stored in a CSV (your emails, one per row)
+python classifier.py label-csv --model model.json \
+  --input my_emails.csv --output my_emails_labelled.csv \
+  --text-columns subject body
+
+# 2b. Classify .eml files exported from your mail client
 python classifier.py classify --model model.json message1.eml message2.eml
 
 # ...or pipe a single raw message in

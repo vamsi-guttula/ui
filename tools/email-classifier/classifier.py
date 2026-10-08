@@ -147,6 +147,34 @@ def cmd_classify(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_label_csv(args: argparse.Namespace) -> int:
+    model = NaiveBayes.load(Path(args.model))
+    columns = args.text_columns
+    with Path(args.input).open(newline="", encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f)
+        fieldnames = list(reader.fieldnames or [])
+        missing = [c for c in columns if c not in fieldnames]
+        if missing:
+            print(f"input CSV is missing column(s): {', '.join(missing)}", file=sys.stderr)
+            return 2
+        rows = list(reader)
+
+    out_fields = fieldnames + [c for c in ("label", "spam_probability") if c not in fieldnames]
+    counts = Counter()
+    with Path(args.output).open("w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=out_fields)
+        writer.writeheader()
+        for row in rows:
+            text = "\n".join(row[c] or "" for c in columns)
+            label, spam_p = model.classify(text, args.threshold)
+            row["label"] = label
+            row["spam_probability"] = round(spam_p, 4)
+            writer.writerow(row)
+            counts[label] += 1
+    print(f"labelled {len(rows)} rows: {dict(counts)} -> {args.output}")
+    return 0
+
+
 def cmd_fetch(args: argparse.Namespace) -> int:
     password = os.environ.get("IMAP_PASSWORD")
     if not password:
@@ -195,6 +223,17 @@ def build_parser() -> argparse.ArgumentParser:
     p_classify.add_argument("--threshold", type=float, default=0.5, help=threshold_help)
     p_classify.add_argument("paths", nargs="*", help=".eml files; '-' or no paths reads stdin")
     p_classify.set_defaults(func=cmd_classify)
+
+    p_label = sub.add_parser("label-csv", help="add spam/ham labels to a CSV of emails")
+    p_label.add_argument("--model", required=True)
+    p_label.add_argument("--input", required=True, help="CSV of emails")
+    p_label.add_argument("--output", required=True, help="labelled CSV to write")
+    p_label.add_argument(
+        "--text-columns", nargs="+", default=["text"],
+        help="input column(s) holding the email text (default: text)",
+    )
+    p_label.add_argument("--threshold", type=float, default=0.5, help=threshold_help)
+    p_label.set_defaults(func=cmd_label_csv)
 
     p_fetch = sub.add_parser("fetch", help="classify unread IMAP messages (password in IMAP_PASSWORD)")
     p_fetch.add_argument("--model", required=True)
