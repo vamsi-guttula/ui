@@ -33,3 +33,6 @@ yarn-error.log*
 .turbo
 
 .contentlayer
+# email classifier
+tools/email-classifier/model.json
+__pycache__/

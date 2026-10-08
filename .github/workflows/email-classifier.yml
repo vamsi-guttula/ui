@@ -1,0 +1,40 @@
+name: Email spam classifier
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 * * * *" # hourly
+
+permissions:
+  contents: read
+
+jobs:
+  classify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/email-classifier
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run unit tests
+        run: python -m unittest -v test_classifier
+
+      - name: Train model
+        run: python classifier.py train --data data/sample_train.csv --model model.json
+
+      - name: Classify unread mail
+        env:
+          IMAP_HOST: ${{ secrets.IMAP_HOST }}
+          IMAP_USER: ${{ secrets.IMAP_USER }}
+          IMAP_PASSWORD: ${{ secrets.IMAP_PASSWORD }}
+        run: |
+          python classifier.py fetch \
+            --model model.json \
+            --host "$IMAP_HOST" \
+            --user "$IMAP_USER" \
+            --limit 50
