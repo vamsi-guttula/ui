@@ -2,7 +2,7 @@
   "name": "ai-news-agent",
   "version": "0.0.1",
   "private": true,
-  "description": "Emails a 100-word summary of the latest AI news every 5 minutes.",
+  "description": "Saves a 100-word summary of the latest AI news to your desktop every 5 minutes.",
   "type": "module",
   "engines": {
     "node": ">=20.6"
