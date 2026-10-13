@@ -1,7 +1,8 @@
 # AI news agent
 
 Every 5 minutes, asks Claude (with web search) for the latest AI news,
-condenses it to about 100 words, and emails it to you.
+condenses it to about 100 words, and saves it to `ai-news.txt` on your
+desktop. Each run adds a new timestamped entry to the end of the file.
 
 ## Setup
 
@@ -10,17 +11,18 @@ Requires Node.js 20.6 or newer.
 ```bash
 cd agents/ai-news
 npm install
-cp .env.example .env   # then fill in your API key and SMTP details
+cp .env.example .env   # then fill in your API key
 ```
 
-For Gmail, set `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=465` and use an
-[App Password](https://myaccount.google.com/apppasswords) as `SMTP_PASS`.
+To save somewhere else, set `OUTPUT_FILE` in `.env` (useful on Windows if
+your desktop is synced to OneDrive, e.g.
+`OUTPUT_FILE=C:\Users\you\OneDrive\Desktop\ai-news.txt`).
 
 ## Run
 
 ```bash
-npm run once   # send one digest now, to test your settings
-npm start      # keep running and send a digest every 5 minutes
+npm run once   # save one digest now, to test your settings
+npm start      # keep running and save a digest every 5 minutes
 ```
 
 Change the interval with `CRON_SCHEDULE` in `.env` (cron syntax, e.g.

@@ -1,38 +1,27 @@
 // AI news agent: every 5 minutes, asks Claude (with web search) for the
-// latest AI news, condensed to ~100 words, and emails it.
+// latest AI news, condensed to ~100 words, and appends it to a file on
+// your desktop.
 //
 //   npm start        run on a schedule (default: every 5 minutes)
-//   npm run once     send one digest now and exit
+//   npm run once     save one digest now and exit
 
+import { appendFile, mkdir } from "node:fs/promises"
+import { homedir } from "node:os"
+import { dirname, join } from "node:path"
 import Anthropic from "@anthropic-ai/sdk"
 import cron from "node-cron"
-import nodemailer from "nodemailer"
 
 const SCHEDULE = process.env.CRON_SCHEDULE || "*/5 * * * *"
+const OUTPUT_FILE =
+  process.env.OUTPUT_FILE || join(homedir(), "Desktop", "ai-news.txt")
 const MAX_CONTINUATIONS = 5
 
-const required = [
-  "ANTHROPIC_API_KEY",
-  "SMTP_HOST",
-  "SMTP_USER",
-  "SMTP_PASS",
-  "MAIL_TO",
-]
-const missing = required.filter((name) => !process.env[name])
-if (missing.length) {
-  console.error(`Missing env vars: ${missing.join(", ")} (see .env.example)`)
+if (!process.env.ANTHROPIC_API_KEY) {
+  console.error("Missing env var: ANTHROPIC_API_KEY (see .env.example)")
   process.exit(1)
 }
 
 const client = new Anthropic()
-
-const port = Number(process.env.SMTP_PORT || 465)
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port,
-  secure: port === 465,
-  auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-})
 
 const SYSTEM = `You are a news agent that reports the latest developments in artificial intelligence.
 Search the web for the most recent AI news (model releases, research, products, policy, funding).
@@ -89,13 +78,12 @@ async function runOnce() {
   const started = new Date()
   try {
     const digest = await getAiNews()
-    await transporter.sendMail({
-      from: process.env.MAIL_FROM || process.env.SMTP_USER,
-      to: process.env.MAIL_TO,
-      subject: `AI update - ${started.toLocaleString()}`,
-      text: digest,
-    })
-    console.log(`[${started.toISOString()}] Sent digest to ${process.env.MAIL_TO}`)
+    await mkdir(dirname(OUTPUT_FILE), { recursive: true })
+    await appendFile(
+      OUTPUT_FILE,
+      `=== AI update - ${started.toLocaleString()} ===\n${digest}\n\n`
+    )
+    console.log(`[${started.toISOString()}] Saved digest to ${OUTPUT_FILE}`)
   } catch (error) {
     if (error instanceof Anthropic.RateLimitError) {
       console.error(`[${started.toISOString()}] Rate limited, will retry next run`)
